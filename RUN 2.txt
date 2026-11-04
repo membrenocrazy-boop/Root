@@ -1,0 +1,10 @@
+Quest tools:
+  frida -n GRO -l frida-il2cpp-bridge.js -l mestro_ac.ts
+
+USB:
+  frida -U -l frida-il2cpp-bridge.js -l mestro_ac.ts "Gro"
+
+Logo: embedded in mestro_ac.ts — loads automatically with the frida command.
+No adb push needed.
+
+made by mestro
