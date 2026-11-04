@@ -1,31 +1,47 @@
 "use strict";
 
 Il2Cpp.perform(() => {
-    console.log("[GST MASTER] Booting up and blocking kicks...");
+    console.log("[GST MASTER] Booting up and blocking kicks safely...");
 
-    // ── 1. ANTI-KICK BYPASS ──────────────────────────────────────────────
+    // ── 1. SAFE ANTI-KICK BYPASS ────────────────────────────────────────
     const asm = Il2Cpp.domain.assembly("Assembly-CSharp").image;
-    const kickNames = ["kickplayer", "kick", "KickHammer", "GSTRemoteMotionGuard"];
+    const kickNames = ["kickplayer", "kick", "KickHammer"];
     
     for (const kName of kickNames) {
         try {
             const cls = asm.tryClass(kName);
             if (cls) {
                 for (const m of cls.methods) {
-                    if (m.name.toLowerCase().includes("kick") || m.name.toLowerCase().includes("punish") || m.name.toLowerCase().includes("guard")) {
-                        // Hook the kick method and return immediately (do nothing)
-                        if (m.parameterCount === 0) {
-                            m.implementation = function() { return; };
-                        } else {
-                            // Skip it entirely
-                            m.implementation = function() { return; };
-                        }
-                        console.log("[GST MASTER] Blocked " + kName + "." + m.name);
+                    if (m.name.toLowerCase().includes("kick")) {
+                        Interceptor.attach(m.virtualAddress, {
+                            onEnter(args) {
+                                // If it tries to kick, just don't let it.
+                                // We can't easily return from onEnter without crashing, 
+                                // but we can skip the logic inside if we hook the core disconnect.
+                            }
+                        });
                     }
                 }
             }
         } catch(e) {}
     }
+
+    // Actually, the safest way to block the kick is to hook the Photon Disconnect call
+    try {
+        const PhotonNetwork = asm.tryClass("PhotonNetwork") || asm.tryClass("Photon.Pun.PhotonNetwork");
+        if (PhotonNetwork) {
+            const disc = PhotonNetwork.tryMethod("Disconnect", 0);
+            if (disc) {
+                Interceptor.attach(disc.virtualAddress, {
+                    onEnter() {
+                        console.log("[GST MASTER] Blocked a Photon Disconnect (Kick).");
+                    }
+                });
+                // We replace the implementation so the game thinks it disconnected, but stays in the room.
+                disc.implementation = function() { return; };
+            }
+        }
+    } catch (e) {}
 
     // ── 2. STATE & CLASSES ───────────────────────────────────────────────
     const S = {
